@@ -23,8 +23,6 @@ public class InteractiveQueries {
 
     private static final Logger LOG = Logger.getLogger(InteractiveQueries.class);
 
-    @ConfigProperty(name = "hostname")
-    String host;
 
     @Inject
     KafkaStreams streams;
@@ -41,27 +39,15 @@ public class InteractiveQueries {
                 .collect(Collectors.toList());
     }
 
+
     public GetWeatherStationDataResult getWeatherStationData(int id) {
-        StreamsMetadata metadata = streams.metadataForKey(
-                TopologyProducer.WEATHER_STATIONS_STORE,
-                id,
-                Serdes.Integer().serializer());
+        Aggregation result = getWeatherStationStore().get(id);
 
-        if (metadata == null || metadata == StreamsMetadata.NOT_AVAILABLE) {
-            LOG.warnv("Found no metadata for key {0}", id);
+        if (result != null) {
+            return GetWeatherStationDataResult.found(WeatherStationData.from(result));
+        }
+        else {
             return GetWeatherStationDataResult.notFound();
-        } else if (metadata.host().equals(host)) {
-            LOG.infov("Found data for key {0} locally", id);
-            Aggregation result = getWeatherStationStore().get(id);
-
-            if (result != null) {
-                return GetWeatherStationDataResult.found(WeatherStationData.from(result));
-            } else {
-                return GetWeatherStationDataResult.notFound();
-            }
-        } else {
-            LOG.infov("Found data for key {0} on remote host {1}:{2}", id, metadata.host(), metadata.port());
-            return GetWeatherStationDataResult.foundRemotely(metadata.host(), metadata.port());
         }
     }
 
